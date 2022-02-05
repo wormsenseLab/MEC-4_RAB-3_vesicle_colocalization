@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Sat Jul  3 11:40:21 2021
-
-@author: alkad
-"""
-
 #import basic libraries for plotting, data structures and signal processing
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
@@ -19,10 +12,10 @@ import datetime
 import seaborn as sns
 
 #%%
-fpath = 'G:/My Drive/ECM manuscript/github codes/MEC-4_RAB-3_vesicle_colocalization/sample_data/input_files/' #filepath where the data is
+fpath = 'G:/My Drive/ECM manuscript/github codes/MEC-4_RAB-3_vesicle_colocalization/sample_data/input_files/' #filepath for input files
 imgfiles = fnmatch.filter(os.listdir(fpath), '*.tif')
 
-dfpath = 'G:/My Drive/ECM manuscript/github codes/MEC-4_RAB-3_vesicle_colocalization/sample_data/output_files/'                
+dfpath = 'G:/My Drive/ECM manuscript/github codes/MEC-4_RAB-3_vesicle_colocalization/sample_data/output_files/'     #filepath where output files will be created
 toa = str(datetime.datetime.today()).split()
 today = toa[0]
 now = toa[1]
@@ -30,8 +23,7 @@ timestamp = today.replace('-','')+'-'+now.replace(':','')[:6]
 
 #%%
 #PARAMETERS
-code_version = os.path.basename(__file__)                  #stores the filename of the current script in f
-mu_per_px = 0.252     #pixels to microns conversion factor (60x, 2x2 binning)
+mu_per_px = 0.252     #pixels to microns conversion factor
 
 max_dist=595          #maximum distance from cell body to analyze (200 um = 795 px, 150 um=595 px)
 dist = np.arange(max_dist)*mu_per_px                      #pixel to microns conversion
@@ -46,7 +38,8 @@ N  = 2    # Filter order
 Wn = .5 # Cutoff frequency
 B, A = butter(N, Wn, output='ba')
 
-def neurite_fluorescence(img):
+#define custom function to calculate neurite fluorescence after background subtraction
+def neurite_fluorescence(img):              #input is the straightened image (signal channel)
     n = img[3:7, 0:]                       #extract rows to use for neurite
     bg = np.concatenate((img[0:2, 0:], img[8: , 0:]))   #extract rows to use for background
     rawf = np.mean(n, axis=0)               #calculate average raw neurite fluorescence
@@ -59,14 +52,16 @@ def neurite_fluorescence(img):
     fnf_2 = minimum_filter(nf, sigma_nf_2)
     fnf_3 = gaussian_filter(fnf_2, sigma_nf_3)
     fnf = fnf_1-fnf_3
-    return(fnf_1,fnf_3,fnf)
+    return(fnf_1,fnf_3,fnf)                 #outputs: filtered neurite fluorescence, smoothed baseline fluorescence, baseline subtracted neurite fluorescence
 
+#define custom function for calculating height-cutoff for peak finding
 def height_cutoff(fnf):
     avnoise = np.mean(fnf[fnf < np.percentile(fnf, 75)])
     stdnoise = np.std(fnf[fnf < np.percentile(fnf, 75)])
     height = avnoise + 5*stdnoise
     return(height)
 
+#define custom function for finding peaks in the input signal
 def peakfinder(nf,fnf,height):
     peaks_pos=find_peaks(fnf, height=height, prominence=0.5*height)[0]
     pw=peak_widths(nf, peaks_pos, rel_height=0.5)[0]
@@ -83,7 +78,7 @@ def peakfinder(nf,fnf,height):
     pmi=[nf[i] for i in peaks_pos]
     return(peaks_pos, pd, pw, pmi, fpmi)
 
-
+#define custom function to determine if any pair of peaks in two channels are co-localized
 def colocalization(A,B):
     coloc=[]
     n=0
@@ -113,8 +108,6 @@ strain_key=pandas.DataFrame({('x134', 'GN1016', 'WT', 0),
                              ('x137', 'GN1027','mec-9(u437)', 0),
                              ('x136', 'GN1026','mec-1(e1738)', 0)
                              }, columns=['StrainID','Strain name','Allele', 'n'])
-# strain_key=strain_key.set_index('Strain')
-
 
 #%%
 
@@ -179,9 +172,7 @@ for x in imgfiles:                            #create loop for number of images 
     plt.ylabel('Intensity (AU)')
     plt.axis([0, max(dist), 0, 100])
     plt.plot(dist, nG, 'g-')
-    # plt.plot(dist,bsG,'g')
     plt.plot(pdG, pmiG, 'go')
-    # plt.hlines(pwG[1], pwG[2]*mu_per_px, pwG[3]*mu_per_px)
     plt.eventplot(list(all_peaksG['Puncta distance'][all_peaksG['Colocalization']=='yes']), linelengths=100)
 
     plt.subplot(grid[6:, :])
@@ -191,7 +182,6 @@ for x in imgfiles:                            #create loop for number of images 
     plt.axis([0, max(dist), 0, max(fnR)])
     plt.plot(dist, fnR, 'r-')
     plt.plot(pdR, fpmiR, 'ro')
-    # plt.hlines(pwR[1], pwR[2]*mu_per_px, pwR[3]*mu_per_px)
     plt.eventplot(list(all_peaksR['Puncta distance'][all_peaksR['Colocalization']=='yes']), linelengths=100)
     plt.hlines(heightR, 0, max(dist), 'r')
 
